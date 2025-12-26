@@ -37,6 +37,73 @@ struct Packet {
   uint16_t crc = 0;
 };
 
+constexpr uint16_t kCmdPower = 0x0001;
+constexpr uint16_t kCmdPage = 0x0002;
+constexpr uint16_t kCmdMsg = 0x0003;
+constexpr uint16_t kCmdWarn = 0x0004;
+constexpr uint16_t kCmdErr = 0x0005;
+constexpr uint16_t kCmdInit = 0x0006;
+constexpr uint16_t kCmdInitComp = 0x0007;
+constexpr uint16_t kCmdMoveLeft = 0x0008;
+constexpr uint16_t kCmdMoveRight = 0x0009;
+constexpr uint16_t kCmdMoveUp = 0x000A;
+constexpr uint16_t kCmdMoveDown = 0x000B;
+constexpr uint16_t kCmdBack = 0x000C;
+constexpr uint16_t kCmdEnter = 0x000D;
+
+struct ParsedCommand {
+  enum Type : uint8_t {
+    kUnknown = 0,
+    kPower,
+    kPage,
+    kMsg,
+    kWarn,
+    kErr,
+    kInit,
+    kInitComp,
+    kMoveLeft,
+    kMoveRight,
+    kMoveUp,
+    kMoveDown,
+    kBack,
+    kEnter,
+  };
+
+  struct Power {
+    uint8_t instruction = 0;
+  };
+
+  struct Page {
+    uint8_t page = 0;
+  };
+
+  struct Message {
+    char text[64] = {0};
+  };
+
+  struct Init {
+    uint8_t percent = 0;
+    char message[16] = {0};
+  };
+
+  uint8_t ver = kVersion;
+  uint8_t flags = 0;
+  uint16_t cmd = 0;
+  uint8_t seq = 0;
+  uint8_t len = 0;
+  Type type = kUnknown;
+
+  union Payload {
+    Power power;
+    Page page;
+    Message message;
+    Init init;
+    Payload() : power() {}
+  } payload;
+};
+
+bool parseCommand(const Packet &packet, ParsedCommand &command);
+
 struct DropStats {
   uint32_t syncMisses = 0;
   uint32_t crcFailures = 0;
