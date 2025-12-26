@@ -55,6 +55,27 @@ void loop() {
 }
 ```
 
+## Parsing commands
+
+Use `parseCommand` to decode a received `Packet` into a typed command payload. The parsed
+payload is stored in a compact union, so only the active command data is present.
+
+```cpp
+interlink::Packet packet;
+if (link.readPacket(packet)) {
+  interlink::ParsedCommand cmd;
+  if (interlink::parseCommand(packet, cmd)) {
+    if (cmd.type == interlink::ParsedCommand::kPower) {
+      uint8_t instruction = cmd.payload.power.instruction;
+      // handle power command
+    } else if (cmd.type == interlink::ParsedCommand::kMsg) {
+      const char *message = cmd.payload.message.text;
+      // handle informational message
+    }
+  }
+}
+```
+
 ## Examples
 
 - `BasicSendReceive` — basic send/receive (no ACK)

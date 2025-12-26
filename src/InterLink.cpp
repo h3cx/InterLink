@@ -2,6 +2,23 @@
 
 namespace interlink {
 
+namespace {
+
+void copyFixedString(const uint8_t *src, size_t srcLen, char *dest, size_t destSize) {
+  if (destSize == 0) {
+    return;
+  }
+  size_t copyLen = srcLen < destSize ? srcLen : destSize;
+  if (copyLen > 0) {
+    memcpy(dest, src, copyLen);
+  }
+  if (destSize > 0) {
+    dest[destSize - 1] = '\0';
+  }
+}
+
+}  // namespace
+
 InterLink::InterLink(Stream &stream) : stream_(stream) {}
 
 void InterLink::begin() {
@@ -389,5 +406,82 @@ InterLink::PendingRequest *InterLink::findPending(uint16_t cmd, uint8_t seq) {
 bool InterLink::queueHasSpace() const { return rxCount_ < INTERLINK_RX_QUEUE; }
 
 size_t InterLink::writeBytes(const uint8_t *data, size_t length) { return stream_.write(data, length); }
+
+bool parseCommand(const Packet &packet, ParsedCommand &command) {
+  command = ParsedCommand();
+  command.ver = packet.ver;
+  command.flags = packet.flags;
+  command.cmd = packet.cmd;
+  command.seq = packet.seq;
+  command.len = packet.len;
+
+  switch (packet.cmd) {
+    case kCmdPower:
+      if (packet.len != 1) {
+        return false;
+      }
+      command.type = ParsedCommand::kPower;
+      command.payload.power.instruction = packet.body[0];
+      return true;
+    case kCmdPage:
+      if (packet.len != 1) {
+        return false;
+      }
+      command.type = ParsedCommand::kPage;
+      command.payload.page.page = packet.body[0];
+      return true;
+    case kCmdMsg:
+    case kCmdWarn:
+    case kCmdErr:
+      if (packet.len != 64) {
+        return false;
+      }
+      if (packet.cmd == kCmdMsg) {
+        command.type = ParsedCommand::kMsg;
+      } else if (packet.cmd == kCmdWarn) {
+        command.type = ParsedCommand::kWarn;
+      } else {
+        command.type = ParsedCommand::kErr;
+      }
+      copyFixedString(packet.body, 64, command.payload.message.text, sizeof(command.payload.message.text));
+      return true;
+    case kCmdInit:
+      if (packet.len != 17) {
+        return false;
+      }
+      command.type = ParsedCommand::kInit;
+      command.payload.init.percent = packet.body[0];
+      copyFixedString(packet.body + 1, 16, command.payload.init.message, sizeof(command.payload.init.message));
+      return true;
+    case kCmdInitComp:
+    case kCmdMoveLeft:
+    case kCmdMoveRight:
+    case kCmdMoveUp:
+    case kCmdMoveDown:
+    case kCmdBack:
+    case kCmdEnter:
+      if (packet.len != 0) {
+        return false;
+      }
+      if (packet.cmd == kCmdInitComp) {
+        command.type = ParsedCommand::kInitComp;
+      } else if (packet.cmd == kCmdMoveLeft) {
+        command.type = ParsedCommand::kMoveLeft;
+      } else if (packet.cmd == kCmdMoveRight) {
+        command.type = ParsedCommand::kMoveRight;
+      } else if (packet.cmd == kCmdMoveUp) {
+        command.type = ParsedCommand::kMoveUp;
+      } else if (packet.cmd == kCmdMoveDown) {
+        command.type = ParsedCommand::kMoveDown;
+      } else if (packet.cmd == kCmdBack) {
+        command.type = ParsedCommand::kBack;
+      } else {
+        command.type = ParsedCommand::kEnter;
+      }
+      return true;
+    default:
+      return false;
+  }
+}
 
 }  // namespace interlink
